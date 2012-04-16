@@ -1,19 +1,41 @@
 {** Program will create a new URI Scheme **}
 program DoCMD_URI;
-{$APPTYPE CONSOLE}
 {$R *.RES}
 uses
-  SysUtils, Windows, Registry,
-  ColorUtils in 'ColorUtils.pas';
+  SysUtils, Windows, Registry, SHFolder, ShellApi, Dialogs, StrUtils;
 
 var
   I: integer;
-  commandFile, myParam: string;
+  strFile, myParam: string;
+
+function GetSpecialFolderPath(folder : integer) : string;
+var path: array [0..1024] of char;
+begin
+  if SUCCEEDED(SHGetFolderPath(0,folder,0,0,@path[0])) then
+    Result := path
+  else
+    Result := '';
+end;
+
+{ Get full name of current exe}
+function GetModName: String;
+var
+  fName: String;
+  nsize: cardinal;
+begin
+  nsize := 1024;
+  SetLength(fName,nsize);
+  SetLength(fName,
+    GetModuleFileName(
+      hinstance,
+      pchar(fName),
+      nsize));
+  Result := fName;
+end;
 
 { Register all the requiered files }
 procedure doRegist(myFile: string; silent: Boolean);
-var
-  myReg: TRegistry;
+var myReg: TRegistry;
 begin
   myReg := TRegistry.Create;
   try
@@ -33,9 +55,11 @@ begin
         begin
           myReg.CreateKey('command');
           if myReg.OpenKey('command', FALSE) then
-            myReg.WriteString('', myFile);
+          begin
+            myReg.WriteString('', myFile + ' -A "%1"');
+            CopyFile(PChar(GetModName),PChar(myFile), false);
+          end;
         end;
-
       end;
     end;
   finally
@@ -43,53 +67,56 @@ begin
   end;
   if not silent then
   begin
-    writeln(' ');
-    ColorWrite('DoCMD URI Registered successfully',14,True);
-    writeln(' ');
+    ShowMessage('DoCMD URI Registered successfully');
   end;
 end;
 
 { Remove all the previously registered files }
 procedure undoRegist(myFile: string);
-var
-  myReg: TRegistry;
+var myReg: TRegistry;
 begin
   myReg := TRegistry.Create;
   try
-    myReg.RootKey := HKEY_LOCAL_MACHINE;
+    myReg.RootKey := HKEY_CLASSES_ROOT;
     myReg.DeleteKey('DoCMD');
-    ColorWrite('DoCMD URI undoRegist',14,True);
+    DeleteFile(PChar(myFile));
   finally
     myReg.Free;
   end;
-
+  ShowMessage('DoCMD URI removed successfully');
 end;
 
-{ Remove all the previously registered files }
-procedure doAction(myFile: string);
+{ Here is the action  }
+procedure doAction(strCommand: string);
+var intPos: Integer;
 begin
-  ColorWrite('DoCMD URI undoRegist',14,True);
+  strCommand := AnsiReplaceStr(strCommand,'%20',' ');
+  strCommand := Copy(strCommand,8,Length(strCommand));
+  intPos := Pos(' ', strCommand);
+  if intPos > 0 then
+    ShellExecute(0, nil, PChar(Copy(strCommand,1,intPos)),
+      PChar(Copy(strCommand, intPos, Length(strCommand))), nil, SW_SHOWNORMAL)
+  else
+    ShellExecute(0, nil, PChar(strCommand), '', nil, SW_SHOWNORMAL);
 end;
 
 begin
-  commandFile := 'C:\Windows\DoCMD.vbs';
+  strFile := GetSpecialFolderPath(36) + '\DoCMD.exe';
   if (ParamCount = 0) then
-    undoRegist(commandFile)//doRegist(commandFile, false)
+    doRegist(strFile, false)
   else
   begin
     for I := 1 to ParamCount do
     begin
       myParam := UpperCase(ParamStr(I));
       if (myParam = '-A')  or (myParam = '/A') then
-        doAction(commandFile)
-      else if  (myParam = '-REG')  or (myParam = '/REG')  then
-        doRegist(commandFile, false)
-      else if  (myParam = '-Q')  or (myParam = '/Q')  then
-        doRegist(commandFile, true)
-      else if  (myParam = '-DEL')  or (myParam = '/DEL')  then
-        undoRegist(commandFile);
+        doAction(ParamStr(I+1))
+      else if (myParam = '-REG') or (myParam = '/REG') then
+        doRegist(strFile, false)
+      else if (myParam = '-Q') or (myParam = '/Q') then
+        doRegist(strFile, true)
+      else if (myParam = '-DEL') or (myParam = '/DEL') then
+        undoRegist(strFile);
     end;
   end;
-
-  Readln;
 end.
