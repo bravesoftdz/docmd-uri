@@ -117,7 +117,7 @@ begin
   intPos := Pos(' ', strCommand);
   if intPos > 0 then
     ShellExecute(0, nil, PChar(Copy(strCommand,1,intPos)),
-      PChar(Copy(strCommand, intPos, Length(strCommand))), nil, SW_SHOWNORMAL)
+      PChar(Copy(strCommand, intPos+1, Length(strCommand))), nil, SW_SHOWNORMAL)
   else
     ShellExecute(0, nil, PChar(strCommand), '', nil, SW_SHOWNORMAL);
 end;
