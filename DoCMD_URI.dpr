@@ -33,6 +33,27 @@ begin
   Result := fName;
 end;
 
+{ Add Current directory to the %PATH% }
+procedure doAddToPath();
+var
+  myReg: TRegistry;
+  strPath, strDir: string;
+begin
+  myReg := TRegistry.Create;
+  try
+    myReg.RootKey := HKEY_LOCAL_MACHINE;
+    if myReg.OpenKey('SYSTEM\CurrentControlSet\Control\Session Manager\Environment\', FALSE) then
+    begin
+      strPath := myReg.ReadString('Path');
+      strDir := ';' + ExtractFileDir(GetModName);
+      if Pos(strDir, strPath) = 0 then
+        myReg.WriteString('Path', strPath + strDir);
+    end;
+  finally
+    myReg.Free;
+  end;
+end;
+
 { Register all the requiered files }
 procedure doRegist(myFile: string; silent: Boolean);
 var myReg: TRegistry;
@@ -58,6 +79,7 @@ begin
           begin
             myReg.WriteString('', myFile + ' -A "%1"');
             CopyFile(PChar(GetModName),PChar(myFile), false);
+            doAddToPath();
           end;
         end;
       end;
