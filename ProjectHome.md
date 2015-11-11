@@ -1,0 +1,1 @@
+Utility to register a URI scheme
